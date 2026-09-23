@@ -1,0 +1,17 @@
+# secrets
+.env
+
+# python
+__pycache__/
+*.pyc
+
+# editor / os
+.DS_Store
+*.bak*
+*.prev
+
+# third-party service manuals and everything derived from them.
+# 40MB of Mitsubishi/CMC documents does not belong in git history.
+data/
+cache/
+out/
