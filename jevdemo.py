@@ -766,7 +766,36 @@ border-radius:3px;background:var(--rule)}
    depending on the window. Three columns over two rows is the same shape every
    time. The chips drop to their own line so they get the label column's width
    as well. */
+/* Every row opens. The marker sits in the Q column so the three text columns
+   stay aligned whether a row is open or not. */
+.qr{cursor:pointer;position:relative}
+.qr:hover{background:var(--panel)}
+.qr:focus-visible{outline:2px solid var(--sig);outline-offset:-2px}
+.qr .qn::before{content:"\203a";display:inline-block;width:9px;
+color:var(--rule);transition:transform .12s}
+.qr.open .qn::before{transform:rotate(90deg);color:var(--sig)}
+.qr .qd{display:none}
+.qr.open .qd{display:block;grid-column:1 / -1;
+padding:6px 0 8px 9px;margin-top:2px;cursor:default}
 .qr.dbrow .qv{grid-column:1 / -1;grid-row:2;margin-top:2px}
+.qr.dbrow.open .qd{grid-row:3}
+
+.qd .dq{margin:0 0 5px;font-size:11px;line-height:1.5;color:var(--soft);
+font-family:"IBM Plex Sans",system-ui,sans-serif;max-width:62ch}
+.qd .dnote{margin:0;font-size:11px;color:var(--faint)}
+.qd .dsrc + .dsrc{margin-top:8px}
+.dbars{display:grid;gap:2px}
+.dbar{display:grid;grid-template-columns:minmax(0,150px) 1fr 40px;gap:8px;
+align-items:center;font-size:10.5px;color:var(--faint)}
+.dbar .dk{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dbar .dt{height:5px;border-radius:3px;background:var(--rule);overflow:hidden}
+.dbar .dt i{display:block;height:100%;background:var(--faint);border-radius:3px}
+.dbar .dv{text-align:right}
+.dbar.hot{color:var(--ink)}
+.dbar.hot .dt i{background:var(--warn)}
+.dbar.hot .dv{color:var(--warn);font-weight:600}
+@media(max-width:700px){.dbar{grid-template-columns:minmax(0,1fr) 34px}
+.dbar .dt{display:none}}
 .qv.chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
 gap:1px 10px;font-size:10.5px;line-height:1.5}
 .qv .chip{color:var(--faint);overflow:hidden;text-overflow:ellipsis;
@@ -1187,9 +1216,17 @@ const DISPLAY = [
 
 const SECTIONS = [
   {id:"gate",    title:"GATE",    hint:""},
-  {id:"fit",     title:"FIT",     hint:"who is asking \u2192 which model"},
+  // Selection is three stages and no section owns it. FIT narrows the pool by
+  // capability, task and style; NETWORK then constrains it by residency and
+  // ranks what is left by RTT or cost; pick_endpoint takes the head of that
+  // list. The hints say what each stage contributes, not what the whole
+  // pipeline produces.
+  //
+  // Three of FIT's four questions read only the query; answer_style_needed is
+  // the one that reads role and skill.
+  {id:"fit",     title:"FIT",     hint:"query + who is asking \u2192 narrows the model pool"},
   {id:"idea",    title:"IDEA",    hint:""},
-  {id:"network", title:"NETWORK", hint:"call 2"},
+  {id:"network", title:"NETWORK", hint:"call 2 \u2192 constrains and ranks what is left"},
 ];
 
 // A noul reads as the side that won and how sure it is: noul 0.09 is "N 0.91".
@@ -1428,6 +1465,68 @@ function renderTiming(t){
 //             answered anyway at no extra latency is the point.
 //   skipped   the question was never asked, because call 2 did not run.
 //             No value, and the reason is named.
+// A row shows one number: the option that won. The rest of the distribution
+// is the interesting part when the model was unsure, so every row opens to
+// show all of it, plus the question as it was actually asked — the list shows
+// a short label, and the wording sent to the model is not the same thing.
+function askedText(qdef){
+  if(!qdef) return "";
+  const i = qdef.instructions;
+  return typeof i === "string" ? i : ((i && i.question) || "");
+}
+
+function fullPairs(a, entry, qdef){
+  if(!a) return [];
+  if(a.type === "noul"){
+    if(!num(a.noul)) return [];
+    return [["yes", a.noul], ["no", 1 - a.noul]];
+  }
+  if(a.type === "score"){
+    const pairs = labelledPairs(a, qdef);
+    // The display labels are shorter; use them when the entry defines them.
+    if(entry && entry.values){
+      return pairs.map((p, i) => [entry.values[i] !== undefined ? entry.values[i] : p[0], p[1]]);
+    }
+    return pairs;
+  }
+  const labels = (entry && entry.labels) || {};
+  return Object.entries(a.probabilities || {})
+    .map(([k, v]) => [labels[k] || k, v])
+    .sort((x, y) => y[1] - x[1]);
+}
+
+function barList(pairs, winner){
+  if(!pairs.length) return '<p class="dnote">no distribution returned</p>';
+  const top = Math.max(...pairs.map(p => num(p[1]) ? p[1] : 0));
+  return '<div class="dbars">' + pairs.map(([k, v]) => {
+    const w = num(v) ? Math.max(v * 100, 0) : 0;
+    const hot = num(v) && v === top && v > 0;
+    return '<div class="dbar' + (hot ? ' hot' : '') + '">' +
+           '<span class="dk">' + esc(k) + '</span>' +
+           '<span class="dt"><i style="width:' + w + '%"></i></span>' +
+           '<span class="dv">' + n2(v) + '</span></div>';
+  }).join("") + '</div>';
+}
+
+function detailFor(key, a, entry, qdef){
+  const asked = askedText(qdef);
+  const head = asked ? '<p class="dq">' + esc(asked) + '</p>' : "";
+  if(!a) return head + '<p class="dnote">not answered</p>';
+  return head + barList(fullPairs(a, entry, qdef));
+}
+
+// The sources row opens to all six at once, each with its own split.
+function sourcesDetail(sourceKeys, answers, q1, catalog){
+  return sourceKeys.map(k => {
+    const id = k.replace(/^use_/, "").replace(/_/g, "-");
+    const e = catalog[id];
+    const a = answers[k];
+    return '<div class="dsrc"><p class="dq">' + esc(id) +
+           (e ? ' \u2014 ' + esc(e.what) + ' (' + esc(e.classification) + ')' : '') +
+           '</p>' + barList(fullPairs(a, null, q1[k])) + '</div>';
+  }).join("");
+}
+
 function renderQuestions(out, q1, q2){
   const a1 = ((out.call1 || {}).response || {}).answers || {};
   const a2 = ((out.call2 || {}).response || {}).answers || {};
@@ -1459,7 +1558,8 @@ function renderQuestions(out, q1, q2){
                    label: entry.label, wide: true, html:
                    sourceKeys.map(k => '<span class="chip">' +
                      esc(k.replace(/^use_/, "").replace(/_/g, "-")) +
-                     '</span>').join("")});
+                     '</span>').join(""),
+                   detail: sourcesDetail(sourceKeys, {}, q1 || {}, catalog)});
         return;
       }
       const chips = sourceKeys.map(k => {
@@ -1472,7 +1572,8 @@ function renderQuestions(out, q1, q2){
                '</b> ' + n2(p) + '</span>';
       }).join("");
       rows.push({q: sourceKeys.length ? "Q" + from + "\u2013" + to : "Q" + (n + 1),
-                 label: entry.label, html: chips, wide: true});
+                 label: entry.label, html: chips, wide: true,
+                 detail: sourcesDetail(sourceKeys, answers, q1 || {}, catalog)});
       return;
     }
     n += 1;
@@ -1482,7 +1583,8 @@ function renderQuestions(out, q1, q2){
     const cell = cellFor(a, entry, qdefs[entry.key]);
     let state = "";
     if(!ran){
-      rows.push({q:"Q" + n, label: entry.label, cell:{v:"", p:null}, state:"pending"});
+      rows.push({q:"Q" + n, label: entry.label, cell:{v:"", p:null}, state:"pending",
+                 detail: detailFor(entry.key, null, entry, qdefs[entry.key])});
       return;
     }
     if(inCall2 && !asked){
@@ -1491,7 +1593,8 @@ function renderQuestions(out, q1, q2){
               (!isBuild && entry.section === "idea")){
       state = "unused";
     }
-    rows.push({q:"Q" + n, label: entry.label, cell: cell, state: state});
+    rows.push({q:"Q" + n, label: entry.label, cell: cell, state: state,
+               detail: detailFor(entry.key, a, entry, qdefs[entry.key])});
   });
 
   const reason = isBuild ? "build"
@@ -1504,28 +1607,32 @@ function renderQuestions(out, q1, q2){
     return '<div class="qsec"><div class="qsh">' + esc(sec.title) +
       (sec.hint ? '<span class="hint">(' + esc(sec.hint) + ')</span>' : '') + '</div>' +
       rows.map(r => {
+        const det = r.detail
+          ? '<div class="qd">' + r.detail + '</div>' : "";
+        const open = ' tabindex="0" role="button" aria-expanded="false"';
         if(r.html !== undefined){
-          return '<div class="qr' + (r.wide ? ' dbrow' : '') + '">' +
+          return '<div class="qr dbrow' + (r.wide ? '' : '') + '"' + open + '>' +
                  '<span class="qn">' + esc(r.q) + '</span>' +
                  '<span class="ql">' + esc(r.label) + '</span>' +
-                 '<span class="qv chips">' + r.html + '</span></div>';
+                 '<span class="qv chips">' + r.html + '</span>' + det + '</div>';
         }
         if(r.state === "pending"){
-          return '<div class="qr pending"><span class="qn">' + esc(r.q) + '</span>' +
-                 '<span class="ql">' + esc(r.label) + '</span>' +
-                 '<span class="qv"></span></div>';
+          return '<div class="qr pending"' + open + '><span class="qn">' + esc(r.q) +
+                 '</span><span class="ql">' + esc(r.label) + '</span>' +
+                 '<span class="qv"></span>' + det + '</div>';
         }
         if(r.state === "skipped"){
-          return '<div class="qr skipped"><span class="qn">' + esc(r.q) + '</span>' +
-                 '<span class="ql">' + esc(r.label) + '</span>' +
-                 '<span class="qv">skipped \u2014 ' + esc(reason) + '</span></div>';
+          return '<div class="qr skipped"' + open + '><span class="qn">' + esc(r.q) +
+                 '</span><span class="ql">' + esc(r.label) + '</span>' +
+                 '<span class="qv">skipped \u2014 ' + esc(reason) + '</span>' +
+                 det + '</div>';
         }
-        return '<div class="qr' + (r.state === "unused" ? ' unused' : '') + '">' +
+        return '<div class="qr' + (r.state === "unused" ? ' unused' : '') + '"' + open + '>' +
                '<span class="qn">' + esc(r.q) + '</span>' +
                '<span class="ql">' + esc(r.label) + '</span>' +
                '<span class="qv"><b>' + esc(r.cell.v) + '</b> ' + n2(r.cell.p) +
                (r.state === "unused" ? '<span class="tag">not used</span>' : '') +
-               '</span></div>';
+               '</span>' + det + '</div>';
       }).join("") + '</div>';
   }).join("");
 
@@ -1638,6 +1745,25 @@ $("run").addEventListener("click", async () => {
     $("err").innerHTML = '<div class="err">' + esc(e.message) + '</div>';
   }
   $("run").disabled = false; $("run").textContent = "Send";
+});
+
+// Delegated once: renderQuestions replaces the list wholesale, so a listener
+// per row would be rebound on every run.
+function toggleRow(row){
+  if(!row || !row.querySelector(".qd")) return;
+  const open = row.classList.toggle("open");
+  row.setAttribute("aria-expanded", open ? "true" : "false");
+}
+$("qlist").addEventListener("click", e => {
+  if(e.target.closest(".qd")) return;   // clicks inside the detail do not close it
+  toggleRow(e.target.closest(".qr"));
+});
+$("qlist").addEventListener("keydown", e => {
+  if(e.key !== "Enter" && e.key !== " ") return;
+  const row = e.target.closest(".qr");
+  if(!row) return;
+  e.preventDefault();
+  toggleRow(row);
 });
 
 fill();
