@@ -3,7 +3,7 @@
 問診第一階段 —— 客戶一句話進來，回答「下一題該問什麼」與「還剩幾種可能」。
 
     python3 cmcdemo.py "早上發動之後 ABS 的燈一直亮著不會熄"
-    python3 cmcdemo.py --walk "煞車燈亮"        # 逐題互動走完
+    python3 cmcweb.py                           # 網頁版，可以逐題追問
     python3 cmcdemo.py --selftest               # 不打 API，驗證切分邏輯
 
 分工跟 jevdemo 一樣，只是換了題目：
@@ -125,12 +125,17 @@ def split_score(candidates, fact):
     return ent * power
 
 
-def stop_reason(candidates, questions, asked):
+def stop_reason(candidates, questions, asked, rounds=None):
     """沒有下一題時，分辨是收斂了還是問不下去。兩者的下游動作不一樣。
 
     流程圖上是兩個出口：收斂交付走綠色，問不下去走紅色。程式一開始只回一個
     空清單，畫面就把成功也講成失敗。
+
+    rounds 是真的問出去幾題。預設拿 len(asked) 當替代，那是單次呼叫的寫法：
+    開場那句話抽到幾個事實就算幾題。但客戶自己講出來的不該算在預算裡，預算
+    是「還能煩客戶幾次」。互動時要把真正的輪數傳進來。
     """
+    n = len(asked) if rounds is None else rounds
     askable = [c for c in candidates if not c["needs_tool"]]
     if not candidates:
         # 所有症狀都被排除。不是收斂，是矛盾：事實表填錯，或客戶講的不在這 17 個裡。
@@ -139,13 +144,20 @@ def stop_reason(candidates, questions, asked):
         return None
     if len(askable) <= 1:
         return "converged"
-    if len(asked) >= ASK_BUDGET:
+    if n >= ASK_BUDGET:
         return "budget"
     return "no_split"
 
 
-def next_questions(candidates, asked, limit=ASK_BUDGET):
-    """挑接下來最值得問的幾題，附上為什麼。"""
+def next_questions(candidates, asked, limit=ASK_BUDGET, rounds=None):
+    """挑接下來最值得問的幾題，附上為什麼。
+
+    rounds 傳進來就會卡預算：問滿了一題都不給。不卡的話畫面會在第 3 題之後
+    還列出第 4 題，下一輪才說「問滿了」——等於叫業務問了才說不該問。
+    selftest 的走訪刻意不傳，它要量的就是最壞情況需要幾題，卡住會看不到。
+    """
+    if rounds is not None and rounds >= ASK_BUDGET:
+        return []
     ranked = []
     for q in QUESTIONS:
         if q["fact"] in asked:

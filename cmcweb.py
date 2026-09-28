@@ -16,6 +16,9 @@ CSS 是從 jevdemo.PAGE 裡抽出來重用的，不是複製一份。jevdemo 改
 分工跟 jevdemo 一樣，只是換了題目：
   模型   把客戶的話對應成結構化事實，只抽已經講出來的
   程式   拿事實篩症狀，算資訊增益挑出下三題
+
+挑出來的題目可以當場點開作答。回答接在原本的描述後面，整段重抽一次事實，
+再算一輪。那就是流程圖上「新答案回到採信」那條回圈。
 """
 
 import argparse
@@ -94,13 +97,54 @@ border:1px solid var(--gate);border-radius:2px;padding:0 4px}
 .aq{padding:11px 16px 13px}
 .aq h3{font-size:11px;letter-spacing:.06em;text-transform:uppercase;
 color:var(--ocode);font-weight:700;margin:0 0 8px}
+.aq h3 .hint{margin-left:10px;font-weight:500;letter-spacing:0;
+text-transform:none;font-size:11.5px;color:var(--faint)}
 .aqi{border-left:3px solid var(--sig);background:var(--panel);
-padding:8px 12px;margin-bottom:7px;border-radius:0 3px 3px 0}
+padding:8px 12px;margin-bottom:7px;border-radius:0 3px 3px 0;
+cursor:pointer;position:relative}
+.aqi:hover{background:var(--sigbg)}
+.aqi:focus-visible{outline:2px solid var(--sig);outline-offset:-2px}
+.aqi .t::before{content:"\203a";display:inline-block;width:13px;
+color:var(--faint);transition:transform .12s}
+.aqi.open .t::before{transform:rotate(90deg);color:var(--sig)}
 .aqi .t{font-size:14px;color:var(--ink);line-height:1.5}
 .aqi .m{margin-top:4px;font-family:"IBM Plex Mono",Menlo,monospace;
 font-size:11px;color:var(--faint)}
 .aqi .m b{color:var(--soft);font-weight:500}
 .aqi.second,.aqi.third{border-left-color:var(--rule);opacity:.8}
+.aqi.open{opacity:1;border-left-color:var(--sig)}
+
+/* 作答區。點開題目才出現，落在題目裡面，看得到是在回哪一題。 */
+.rep{display:none;margin-top:9px;padding-top:9px;border-top:1px solid var(--rule)}
+.aqi.open .rep{display:block}
+.rep .ro{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+.rep .ro button{font:inherit;font-size:12px;color:var(--soft);background:var(--bg);
+border:1px solid var(--rule);border-radius:2px;padding:3px 9px;cursor:pointer}
+.rep .ro button:hover{color:var(--ink);border-color:var(--sig)}
+.rep .rl{display:flex;gap:7px}
+.rep input{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--ink);
+background:var(--bg);border:1px solid var(--rule);border-radius:2px;padding:6px 9px}
+.rep input:focus{outline:none;border-color:var(--sig)}
+.rep .rb{flex:none;font:inherit;font-size:12.5px;cursor:pointer;color:#fff;
+background:var(--sig);border:1px solid var(--sig);border-radius:2px;padding:6px 14px}
+.rep .rn{margin:6px 0 0;font-size:11px;color:var(--faint);line-height:1.5}
+
+.tr{padding:10px 16px 11px;border-bottom:1px solid var(--rule)}
+.tr .trh{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;
+font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);
+font-weight:700}
+.tr .trh .n{margin-left:auto;font-family:"IBM Plex Mono",Menlo,monospace;
+font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--ink)}
+.tr .trh .rs{flex:none;font:inherit;font-size:11px;font-weight:500;letter-spacing:0;
+text-transform:none;color:var(--soft);background:none;border:1px solid var(--rule);
+border-radius:2px;padding:1px 8px;cursor:pointer}
+.tr .trh .rs:hover{color:var(--ink);border-color:var(--sig)}
+.tr .t1{display:grid;grid-template-columns:30px minmax(0,1fr);gap:0 10px;
+font-size:12.5px;line-height:1.55;padding:2px 0}
+.tr .t1 .tn{font-family:"IBM Plex Mono",Menlo,monospace;font-size:11.5px;
+color:var(--faint)}
+.tr .t1 .tt{color:var(--ink)}
+.tr .t1 .qq{color:var(--soft)}
 .done{padding:11px 16px;color:var(--pass);font-size:13px;
 border-left:3px solid var(--pass);background:var(--passbg)}
 .halt{padding:11px 16px;color:var(--stop);font-size:13px;
@@ -155,7 +199,8 @@ border-left:3px solid var(--stop);background:var(--stopbg)}
   <div class="panel">
     <div class="phead">
       <h2>Request</h2>
-      <p>六個分項平行問。客戶沒提到的歸為 not_stated，不納入篩選。</p>
+      <p>六個分項平行問。客戶沒提到的歸為 not_stated，不納入篩選。
+         追問的回答接在後面，整段重抽一次。</p>
     </div>
     <div class="pbody">
       <p class="fld">state</p>
@@ -175,6 +220,12 @@ border-left:3px solid var(--stop);background:var(--stopbg)}
       </div>
     </div>
 
+    <div class="tr" id="tr" hidden>
+      <div class="trh">追問紀錄<span class="n" id="trn"></span>
+        <button type="button" class="rs" id="trreset">重新開始</button></div>
+      <div id="trlist"></div>
+    </div>
+
     <div class="stage qpanel" id="questions_panel" hidden>
       <div class="shead"><h3>這句話說了什麼</h3><span class="kind">model</span>
         <div class="chain" id="qhead"></div></div>
@@ -191,7 +242,7 @@ border-left:3px solid var(--stop);background:var(--stopbg)}
 
     <div class="routing" id="ask" hidden>
       <div class="aq">
-        <h3>接下來問這幾題（依切分力排序）</h3>
+        <h3>接下來問這幾題（依切分力排序）<span class="hint">點一題，填客戶的回答</span></h3>
         <div id="asklist"></div>
       </div>
     </div>
@@ -213,7 +264,10 @@ border-left:3px solid var(--stop);background:var(--stopbg)}
 const COMPLAINTS = __COMPLAINTS__;
 const FACTS = __FACTS__;
 const QUESTIONS = __QUESTIONS__;
+const ASK_BUDGET = __ASK_BUDGET__;
+const FACT_BY_KEY = {}; FACTS.forEach(f => FACT_BY_KEY[f.fact] = f);
 let cur = 0;
+let rounds = [];      // 已經問出去、客戶答過的題目
 const $ = i => document.getElementById(i);
 function esc(t){ return String(t == null ? "" : t)
   .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -234,7 +288,8 @@ $("chips").addEventListener("click", e => {
   cur = +b.dataset.i;
   [...$("chips").children].forEach((x,i)=>x.setAttribute("aria-pressed", i===cur));
   $("picker").open = false;
-  fill(); reset("已載入，尚未送出。");
+  rounds = [];
+  fill(); renderRounds(); reset("已載入，尚未送出。");
 });
 
 function syncPicker(){
@@ -249,8 +304,24 @@ function fill(){
   syncPicker();
   drawSkeleton();
 }
+// 送出去的是「原句 + 每一輪追問」，不是只有最後一句。模型每一輪都從頭抽，
+// 所以後面的回答可以推翻前面讀錯的事實。asked 是已經問過的面向，讓程式不要
+// 再挑同一題——客戶答不出來的題，答不出來也算問過了。
+function transcript(){
+  return [$("q").value.trim()].concat(
+    rounds.map(r => "（問：" + r.ask + "　客戶答：" + r.reply + "）")).join("\n");
+}
 function syncToState(){
-  $("state").value = JSON.stringify({complaint: $("q").value}, null, 2);
+  $("state").value = JSON.stringify(
+    {complaint: transcript(), asked: rounds.map(r => r.fact)}, null, 2);
+}
+function renderRounds(){
+  $("trn").textContent = "已問 " + rounds.length + " / " + ASK_BUDGET + " 題";
+  $("trlist").innerHTML = rounds.map((r, i) =>
+    '<div class="t1"><span class="tn">' + (i+1) + '</span><span class="tt">' +
+    '<span class="qq">' + esc(r.ask) + '</span> ' + esc(r.reply) +
+    '</span></div>').join("");
+  $("tr").hidden = rounds.length === 0;
 }
 $("q").addEventListener("input", syncToState);
 $("q").addEventListener("keydown", e => { if(e.key === "Enter") $("run").click(); });
@@ -341,7 +412,7 @@ function renderCandidates(d){
 const STOP_TEXT = {
   empty:     ["halt", "沒有症狀與這些答案相符。事實表可能填錯，或客戶描述的不在這 17 個症狀裡。"],
   converged: ["done", "已收斂。剩下一個候選，交給工廠。"],
-  budget:    ["done", "問滿 3 題，剩下交給工廠。"],
+  budget:    ["done", "問滿 " + ASK_BUDGET + " 題，剩下交給工廠。"],
   no_split:  ["halt", "剩下的候選沒有業務問得出來的題可以分辨，交給工廠。"],
 };
 
@@ -352,22 +423,97 @@ function renderAsk(qs, stop){
       '<div class="' + t[0] + '">' + esc(t[1]) + '</div>';
   } else {
     const rank = ["", "second", "third"];
-    $("asklist").innerHTML = qs.map((q,i) =>
-      '<div class="aqi ' + rank[i] + '"><div class="t">' + esc(q.ask) + '</div>' +
-      '<div class="m">切分力 <b>' + q.score.toFixed(2) + '</b> · ' +
-      Object.entries(q.splits).map(([k,v]) => esc(k) + " " + v).join(" · ") +
-      '</div></div>').join("");
+    $("asklist").innerHTML = qs.map((q,i) => {
+      const f = FACT_BY_KEY[q.fact] || {opts:{}};
+      // 選項只是幫忙填字，填進去還是一句話，一樣交給模型抽。直接按選項寫入
+      // 事實會比較準，但那就不是這個 demo 要示範的事。
+      const chips = Object.keys(f.opts).map(k =>
+        '<button type="button" data-o="' + esc(f.opts[k]) + '">' +
+        esc(f.opts[k]) + '</button>').join("");
+      return '<div class="aqi ' + rank[i] + '" tabindex="0" role="button" ' +
+        'aria-expanded="false" data-fact="' + esc(q.fact) + '" ' +
+        'data-ask="' + esc(q.ask) + '">' +
+        '<div class="t">' + esc(q.ask) + '</div>' +
+        '<div class="m">切分力 <b>' + q.score.toFixed(2) + '</b> · ' +
+        Object.entries(q.splits).map(([k,v]) => esc(k) + " " + v).join(" · ") +
+        '</div>' +
+        '<div class="rep"><div class="ro">' + chips + '</div>' +
+        '<div class="rl"><input type="text" spellcheck="false" ' +
+        'placeholder="客戶怎麼回答？照客戶的話打"><button type="button" class="rb">' +
+        '送出回答</button></div>' +
+        '<p class="rn">這句話會接在原本的描述後面，六個分項重抽一次。</p>' +
+        '</div></div>';
+    }).join("");
   }
   $("ask").hidden = false;
 }
 
-$("run").addEventListener("click", async () => {
+// 一次只開一題。開兩題的話不知道游標在回哪一題。
+function openAsk(item){
+  if(!item) return;
+  const was = item.classList.contains("open");
+  [...$("asklist").children].forEach(x => {
+    x.classList.remove("open");
+    x.setAttribute("aria-expanded", "false");
+  });
+  if(was) return;
+  item.classList.add("open");
+  item.setAttribute("aria-expanded", "true");
+  const inp = item.querySelector("input");
+  if(inp) inp.focus();
+}
+
+function submitReply(item){
+  if(!item) return;
+  const inp = item.querySelector("input");
+  const reply = (inp.value || "").trim();
+  if(!reply){ inp.focus(); return; }
+  rounds.push({fact: item.dataset.fact, ask: item.dataset.ask, reply: reply});
+  syncToState();
+  run();
+}
+
+$("asklist").addEventListener("click", e => {
+  const chip = e.target.closest(".ro button");
+  if(chip){
+    const inp = chip.closest(".rep").querySelector("input");
+    inp.value = chip.dataset.o;
+    inp.focus();
+    return;
+  }
+  if(e.target.closest(".rb")){ submitReply(e.target.closest(".aqi")); return; }
+  if(e.target.closest(".rep")) return;
+  openAsk(e.target.closest(".aqi"));
+});
+$("asklist").addEventListener("keydown", e => {
+  const item = e.target.closest(".aqi");
+  if(!item) return;
+  if(e.target.tagName === "INPUT"){
+    if(e.key === "Enter"){ e.preventDefault(); submitReply(item); }
+    return;
+  }
+  if(e.key !== "Enter" && e.key !== " ") return;
+  e.preventDefault();
+  openAsk(item);
+});
+
+function restart(){
+  rounds = [];
+  syncToState();
+  renderRounds();
+  run();
+}
+$("trreset").addEventListener("click", restart);
+
+async function run(){
   let state;
   try{ state = JSON.parse($("state").value); }
   catch(e){ $("err").innerHTML = '<div class="err">state 不是合法 JSON：'+esc(e.message)+'</div>'; return; }
 
   reset("問診中");
-  $("tq").textContent = '「' + (state.complaint || "") + '」';
+  renderRounds();
+  $("tq").textContent = '「' + $("q").value + '」' +
+    (rounds.length ? "　＋ " + rounds.length + " 個追問" : "");
   $("run").disabled = true; $("run").textContent = "...";
   try{
     const r = await fetch("/triage", {method:"POST",
@@ -392,9 +538,12 @@ $("run").addEventListener("click", async () => {
     }
   }catch(e){ $("err").innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
   $("run").disabled = false; $("run").textContent = "問診";
-});
+}
+// 上面那顆按鈕是重新開始一通電話，不是接著問。
+$("run").addEventListener("click", restart);
 
 fill();
+renderRounds();
 </script>
 </body>
 </html>
@@ -404,8 +553,12 @@ fill();
 SYMPTOMS = None   # 啟動時載入一次
 
 
-def triage_payload(complaint):
-    t0 = time.perf_counter()
+def triage_payload(complaint, asked_before=()):
+    """complaint 是整段（原句 + 每一輪追問），每次都從頭重抽。
+
+    asked_before 是前面幾輪已經問出去的面向。它不等於「抽到的事實」：客戶答
+    了但答不出所以然，那個面向照樣不能再挑一次，否則會一直問同一題。
+    """
     questions = C.build_questions()
     state = {"complaint": complaint,
              "known_symptoms": [{"id": s["id"], "title": s["title"]}
@@ -416,8 +569,10 @@ def triage_payload(complaint):
     t1 = time.perf_counter()
     facts, _ = C.read_facts(answers)
     candidates = C.narrow(SYMPTOMS, facts)
-    nxt = C.next_questions(candidates, set(facts), limit=ASK_BUDGET)
-    stop = C.stop_reason(candidates, nxt, set(facts))
+    asked = set(facts) | set(asked_before)
+    rounds = len(asked_before)
+    nxt = C.next_questions(candidates, asked, limit=ASK_BUDGET, rounds=rounds)
+    stop = C.stop_reason(candidates, nxt, asked, rounds=rounds)
     compute_ms = (time.perf_counter() - t1) * 1000
 
     return {
@@ -428,6 +583,7 @@ def triage_payload(complaint):
         "cause_count": C.cause_count(candidates),
         "questions": nxt,
         "stop": stop,
+        "asked": sorted(asked),
         "timing": timing,
         "compute_ms": compute_ms,
         "raw": data,
@@ -460,7 +616,8 @@ class Handler(BaseHTTPRequestHandler):
                     .replace("__BASE_CSS__", BASE_CSS)
                     .replace("__COMPLAINTS__", json.dumps(COMPLAINTS, ensure_ascii=False))
                     .replace("__FACTS__", json.dumps(facts, ensure_ascii=False))
-                    .replace("__QUESTIONS__", json.dumps(C.build_questions(), ensure_ascii=False)))
+                    .replace("__QUESTIONS__", json.dumps(C.build_questions(), ensure_ascii=False))
+                    .replace("__ASK_BUDGET__", str(ASK_BUDGET)))
         self._send(200, page, "text/html; charset=utf-8")
 
     def do_POST(self):
@@ -470,7 +627,7 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", 0))
         try:
             req = json.loads(self.rfile.read(n).decode())
-            out = triage_payload(req.get("complaint", ""))
+            out = triage_payload(req.get("complaint", ""), req.get("asked") or [])
         except Exception as e:
             out = {"error": str(e)}
         self._send(200, json.dumps(out, ensure_ascii=False), "application/json")
