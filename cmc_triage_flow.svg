@@ -1,0 +1,129 @@
+<svg width="100%" viewBox="0 0 760 860" role="img"
+     xmlns="http://www.w3.org/2000/svg"
+     font-family="Noto Sans TC, PingFang TC, Microsoft JhengHei, -apple-system, system-ui, sans-serif">
+<title>中華汽車 問診第一階段 —— 判斷流程</title>
+<desc>客戶的一句話進入一次模型呼叫，六個面向平行作答。之後全部由程式決定：採信哪些答案、篩掉不相容的症狀、用熵算出哪一題最能切分剩下的候選。收斂到只剩一個可排除的候選、沒有題可問、或問滿三題，就停下來交給工廠。</desc>
+
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+
+<style>
+  .box   { stroke-width: 1.5; rx: 4; }
+  .model { fill: #EEEDFE; stroke: #534AB7; }
+  .code  { fill: #F1EFE8; stroke: #5F5E5A; }
+  .done  { fill: #D9EDE8; stroke: #0A6E5E; }
+  .stop  { fill: #FCEBEB; stroke: #A32D2D; }
+  .human { fill: #FFFFFF; stroke: #5F5E5A; stroke-dasharray: 5 3; }
+  .t     { font-size: 15px; font-weight: 600; }
+  .s     { font-size: 12.5px; }
+  .tm    { fill: #534AB7; } .sm { fill: #6B62C8; }
+  .tc    { fill: #33322E; } .sc { fill: #6A6862; }
+  .td    { fill: #0A6E5E; } .sd { fill: #3D8D80; }
+  .ts    { fill: #A32D2D; } .ss { fill: #B55A5A; }
+  .mono  { font-family: "IBM Plex Mono", Menlo, monospace; font-size: 11.5px; }
+  .edge  { stroke: #8A8880; stroke-width: 1.5; fill: none; }
+  .lbl   { font-size: 11.5px; fill: #6A6862; }
+  .note  { font-size: 11px; fill: #9A978E; }
+</style>
+
+<!-- ── 入口 ───────────────────────────────────────────── -->
+<rect class="box code" x="230" y="24" width="240" height="38"/>
+<text class="t tc" x="350" y="48" text-anchor="middle">客戶說的一句話</text>
+
+<path class="edge" d="M350 62 L350 88" marker-end="url(#a)"/>
+
+<!-- ── 模型 ───────────────────────────────────────────── -->
+<rect class="box model" x="200" y="90" width="300" height="62"/>
+<text class="t tm" x="350" y="114" text-anchor="middle">模型 · 一次呼叫</text>
+<text class="s sm" x="350" y="134" text-anchor="middle">六個面向平行作答，沒講的回 not_stated</text>
+<text class="note" x="512" y="126">燈／燈的狀態／功能／異常型態／異音／手感</text>
+
+<path class="edge" d="M350 152 L350 178" marker-end="url(#a)"/>
+
+<!-- ── 採信 ───────────────────────────────────────────── -->
+<rect class="box code" x="200" y="180" width="300" height="62"/>
+<text class="t tc" x="350" y="204" text-anchor="middle">採信哪些答案</text>
+<text class="s sc" x="350" y="224" text-anchor="middle">not_stated 與信心 &lt; 0.5 一律丟掉</text>
+<text class="note" x="512" y="216">寧可多問一題，不要砍掉正確答案</text>
+
+<path class="edge" d="M350 242 L350 268" marker-end="url(#a)"/>
+
+<!-- ── 篩候選 ─────────────────────────────────────────── -->
+<rect class="box code" x="200" y="270" width="300" height="62"/>
+<text class="t tc" x="350" y="294" text-anchor="middle">篩候選</text>
+<text class="s sc" x="350" y="314" text-anchor="middle">事實不相容的症狀排除；17 → N</text>
+<text class="note" x="512" y="306">needs_tool 的症狀業務排不掉，永遠留著</text>
+
+<path class="edge" d="M350 332 L350 358" marker-end="url(#a)"/>
+
+<!-- ── 收斂判斷 ───────────────────────────────────────── -->
+<rect class="box code" x="200" y="360" width="300" height="46"/>
+<text class="t tc" x="350" y="388" text-anchor="middle">可排除的候選剩 ≤ 1 個？</text>
+
+<path class="edge" d="M500 383 L586 383" marker-end="url(#a)"/>
+<text class="lbl" x="543" y="376" text-anchor="middle">是</text>
+
+<rect class="box done" x="588" y="356" width="156" height="54"/>
+<text class="t td" x="666" y="379" text-anchor="middle">交給工廠</text>
+<text class="s sd" x="666" y="398" text-anchor="middle">附已排除的清單</text>
+
+<path class="edge" d="M350 406 L350 438" marker-end="url(#a)"/>
+<text class="lbl" x="362" y="426">否</text>
+
+<!-- ── 算切分力 ───────────────────────────────────────── -->
+<rect class="box code" x="200" y="440" width="300" height="62"/>
+<text class="t tc" x="350" y="464" text-anchor="middle">算每個面向的切分力</text>
+<text class="s sc" x="350" y="484" text-anchor="middle">熵 × (可判定比例)，程式算的不是模型挑的</text>
+<text class="note" x="512" y="476">同一個候選集永遠問同一題</text>
+
+<path class="edge" d="M350 502 L350 528" marker-end="url(#a)"/>
+
+<!-- ── 還能問嗎 ───────────────────────────────────────── -->
+<rect class="box code" x="200" y="530" width="300" height="62"/>
+<text class="t tc" x="350" y="554" text-anchor="middle">還有切分力 &gt; 0 的題？</text>
+<text class="t tc" x="350" y="576" text-anchor="middle">問滿 3 題了嗎？</text>
+
+<path class="edge" d="M500 561 L586 561" marker-end="url(#a)"/>
+<text class="lbl" x="543" y="554" text-anchor="middle">沒題／問滿</text>
+
+<rect class="box stop" x="588" y="534" width="156" height="54"/>
+<text class="t ts" x="666" y="557" text-anchor="middle">問不下去</text>
+<text class="s ss" x="666" y="576" text-anchor="middle">剩下的交給工廠</text>
+
+<path class="edge" d="M350 592 L350 622" marker-end="url(#a)"/>
+<text class="lbl" x="362" y="612">還有</text>
+
+<!-- ── 輸出 ───────────────────────────────────────────── -->
+<rect class="box code" x="200" y="624" width="300" height="62"/>
+<text class="t tc" x="350" y="648" text-anchor="middle">輸出下三題</text>
+<text class="s sc" x="350" y="668" text-anchor="middle">＋ 剩幾個症狀、剩幾種可能原因</text>
+
+<path class="edge" d="M350 686 L350 712" marker-end="url(#a)"/>
+
+<!-- ── 人 ─────────────────────────────────────────────── -->
+<rect class="box human" x="200" y="714" width="300" height="44"/>
+<text class="t tc" x="350" y="742" text-anchor="middle">業務問客戶，客戶回答</text>
+
+<!-- ── 回圈 ───────────────────────────────────────────── -->
+<path class="edge" d="M200 736 L150 736 L150 211 L198 211" marker-end="url(#a)"/>
+<text class="lbl" x="158" y="470" transform="rotate(-90 158 470)" text-anchor="middle">新答案回到採信</text>
+
+<!-- ── 圖例 ───────────────────────────────────────────── -->
+<line x1="24" y1="790" x2="736" y2="790" stroke="#D7D5CE" stroke-width="1"/>
+<rect x="24"  y="806" width="11" height="11" rx="2" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+<text class="s sc" x="43"  y="816">模型判斷</text>
+<rect x="128" y="806" width="11" height="11" rx="2" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.5"/>
+<text class="s sc" x="147" y="816">程式計算</text>
+<rect x="232" y="806" width="11" height="11" rx="2" fill="#D9EDE8" stroke="#0A6E5E" stroke-width="1.5"/>
+<text class="s sc" x="251" y="816">收斂，交付</text>
+<rect x="348" y="806" width="11" height="11" rx="2" fill="#FCEBEB" stroke="#A32D2D" stroke-width="1.5"/>
+<text class="s sc" x="367" y="816">問不下去</text>
+<rect x="452" y="806" width="11" height="11" rx="2" fill="#FFFFFF" stroke="#5F5E5A" stroke-width="1.5" stroke-dasharray="4 2.5"/>
+<text class="s sc" x="471" y="816">人的動作</text>
+
+<text class="mono" x="736" y="816" text-anchor="end" fill="#9A978E">模型只在最上面那一格</text>
+</svg>

@@ -1,0 +1,158 @@
+[
+  {
+    "name": "Restricted financials",
+    "query": "Show me Q3 revenue breakdown for the EU entity",
+    "access_level": "internal",
+    "region": "Frankfurt",
+    "verdict": "block",
+    "selected": [
+      "eu-finance-db"
+    ],
+    "classification": "restricted",
+    "capability": 1,
+    "source_regions": [
+      "Frankfurt"
+    ],
+    "routing": null,
+    "call1_question_count": 8
+  },
+  {
+    "name": "Incident summary",
+    "query": "Summarize the latest network incident report",
+    "access_level": "internal",
+    "region": "Frankfurt",
+    "verdict": "pass",
+    "selected": [
+      "incident-db"
+    ],
+    "classification": "internal",
+    "capability": 1,
+    "source_regions": [
+      "Frankfurt"
+    ],
+    "routing": {
+      "baseline": {
+        "chosen": "llama-fra-op",
+        "skipped": false,
+        "rejected_count": 7
+      },
+      "sjc-congested": {
+        "chosen": "llama-fra-op",
+        "skipped": false,
+        "rejected_count": 7
+      },
+      "apac-degraded": {
+        "chosen": "llama-fra-op",
+        "skipped": false,
+        "rejected_count": 7
+      }
+    },
+    "call1_question_count": 8,
+    "call2_question_count": 2
+  },
+  {
+    "name": "Two requests in one",
+    "query": "What happened with the EU platform issue last quarter and did it affect revenue?",
+    "access_level": "internal",
+    "region": "Frankfurt",
+    "verdict": "split",
+    "selected": [
+      "eu-finance-db",
+      "incident-db"
+    ],
+    "classification": "restricted",
+    "capability": 2,
+    "source_regions": [
+      "Frankfurt"
+    ],
+    "routing": null,
+    "call1_question_count": 8
+  },
+  {
+    "name": "Public lookup",
+    "query": "What is the maximum port speed on the standard cross connect?",
+    "access_level": "public",
+    "region": "Silicon Valley",
+    "verdict": "pass",
+    "selected": [
+      "product-docs"
+    ],
+    "classification": "public",
+    "capability": 1,
+    "source_regions": [
+      "Silicon Valley"
+    ],
+    "routing": {
+      "baseline": {
+        "chosen": "haiku-sjc",
+        "skipped": false,
+        "rejected_count": 7
+      },
+      "sjc-congested": {
+        "chosen": "sonnet-lon",
+        "skipped": false,
+        "rejected_count": 7
+      },
+      "apac-degraded": {
+        "chosen": "haiku-sjc",
+        "skipped": false,
+        "rejected_count": 7
+      }
+    },
+    "call1_question_count": 8,
+    "call2_question_count": 2
+  },
+  {
+    "name": "Allowed for restricted",
+    "query": "Show me Q3 revenue breakdown for the EU entity",
+    "access_level": "restricted",
+    "region": "Frankfurt",
+    "verdict": "pass",
+    "selected": [
+      "eu-finance-db"
+    ],
+    "classification": "restricted",
+    "capability": 1,
+    "source_regions": [
+      "Frankfurt"
+    ],
+    "routing": {
+      "baseline": {
+        "chosen": "llama-fra-op",
+        "skipped": false,
+        "rejected_count": 7
+      },
+      "sjc-congested": {
+        "chosen": "llama-fra-op",
+        "skipped": false,
+        "rejected_count": 7
+      },
+      "apac-degraded": {
+        "chosen": "llama-fra-op",
+        "skipped": false,
+        "rejected_count": 7
+      }
+    },
+    "call1_question_count": 8,
+    "call2_question_count": 2
+  },
+  {
+    "name": "Cross-region analysis",
+    "query": "Compare EU entity cost structure against the published global summary and explain the gap",
+    "access_level": "restricted",
+    "region": "Silicon Valley",
+    "verdict": "split",
+    "selected": [
+      "eu-finance-db",
+      "global-finance-summary"
+    ],
+    "classification": "restricted",
+    "capability": 2,
+    "source_regions": [
+      "Frankfurt",
+      "Silicon Valley"
+    ],
+    "routing": null,
+    "call1_question_count": 8
+  }
+]
