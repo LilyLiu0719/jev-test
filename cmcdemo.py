@@ -24,7 +24,7 @@ import sys
 
 import jevdemo as J
 from intake import (ASK_BUDGET, FACT_KEYS, FACT_VALUES, QUESTIONS,
-                    QUESTION_BY_FACT, SYMPTOM_FACTS)
+                    QUESTION_BY_FACT, SHOW_LIMIT, SYMPTOM_FACTS)
 
 SYMPTOM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "out", "symptom_graphs")
@@ -149,7 +149,7 @@ def stop_reason(candidates, questions, asked, rounds=None):
     return "no_split"
 
 
-def next_questions(candidates, asked, limit=ASK_BUDGET, rounds=None):
+def next_questions(candidates, asked, limit=SHOW_LIMIT, rounds=None):
     """挑接下來最值得問的幾題，附上為什麼。
 
     rounds 傳進來就會卡預算：問滿了一題都不給。不卡的話畫面會在第 3 題之後
@@ -183,7 +183,7 @@ def next_questions(candidates, asked, limit=ASK_BUDGET, rounds=None):
 def build_questions(asked_facts=None):
     """call 1 的題目：每個還沒確定的面向一題 choice，都給 not_stated。
 
-    刻意每個面向都問，包括這通電話大概用不到的。它們在同一次呼叫裡平行回答，
+    刻意每個面向都問，包括這通問診大概用不到的。它們在同一次呼叫裡平行回答，
     多問幾題幾乎不花錢，少問一題卻可能要多一趟來回。
     """
     asked_facts = asked_facts or set()
@@ -342,8 +342,9 @@ def selftest(symptoms):
     print("需技術課逐格確認的判讀")
     for sid, fact, value, title in draft:
         q = QUESTION_BY_FACT[fact]
-        print("  %-14s %-16s = %-12s  %s" % (sid, fact, value,
-                                             q["opts"].get(value, str(value))))
+        vals = value if isinstance(value, (tuple, list)) else [value]
+        print("  %-14s %-16s = %s" % (sid, fact,
+              " 或 ".join(q["opts"].get(v, str(v)) for v in vals)))
 
     print()
     print("走訪：每次都挑切分力最高的一題，看幾題能收斂")
@@ -411,7 +412,7 @@ def main():
     result = triage(args.sentence, symptoms)
     show(result, symptoms)
     print()
-    print("（call 1 %.0fms，%d 題一次問完）"
+    print("（call 1 %.0fms，%d 個分項平行作答）"
           % (result["timing"]["wall_ms"], len(result["raw"].get("answers", {}))))
 
 

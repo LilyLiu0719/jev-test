@@ -2,7 +2,7 @@
      xmlns="http://www.w3.org/2000/svg"
      font-family="Noto Sans TC, PingFang TC, Microsoft JhengHei, -apple-system, system-ui, sans-serif">
 <title>中華汽車 問診第一階段 —— 判斷流程</title>
-<desc>客戶的一句話進入一次模型呼叫，六個面向平行作答。之後全部由程式決定：採信哪些答案、篩掉不相容的症狀、用熵算出哪一題最能切分剩下的候選。收斂到只剩一個可排除的候選、沒有題可問、或問滿三題，就停下來交給工廠。</desc>
+<desc>客戶的一句話進入一次模型呼叫，四個面向平行作答。之後全部由程式決定：採信哪些答案、篩掉不相容的症狀、用熵算出哪一題最能切分剩下的候選。收斂到只剩一個可排除的候選、沒有題可問、或問滿四題，就停下來交給工廠。業務問到的回答接回原句，整段重抽一次，再算一輪。</desc>
 
 <defs>
   <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -39,8 +39,8 @@
 <!-- ── 模型 ───────────────────────────────────────────── -->
 <rect class="box model" x="200" y="90" width="300" height="62"/>
 <text class="t tm" x="350" y="114" text-anchor="middle">模型 · 一次呼叫</text>
-<text class="s sm" x="350" y="134" text-anchor="middle">六個面向平行作答，沒講的回 not_stated</text>
-<text class="note" x="512" y="126">燈／燈的狀態／功能／異常型態／異音／手感</text>
+<text class="s sm" x="350" y="134" text-anchor="middle">四個面向平行作答，沒講的回 not_stated</text>
+<text class="note" x="512" y="126">燈／燈的狀態／功能／異常型態</text>
 
 <path class="edge" d="M350 152 L350 178" marker-end="url(#a)"/>
 
@@ -85,7 +85,7 @@
 <!-- ── 還能問嗎 ───────────────────────────────────────── -->
 <rect class="box code" x="200" y="530" width="300" height="62"/>
 <text class="t tc" x="350" y="554" text-anchor="middle">還有切分力 &gt; 0 的題？</text>
-<text class="t tc" x="350" y="576" text-anchor="middle">問滿 3 題了嗎？</text>
+<text class="t tc" x="350" y="576" text-anchor="middle">問滿 4 題了嗎？</text>
 
 <path class="edge" d="M500 561 L586 561" marker-end="url(#a)"/>
 <text class="lbl" x="543" y="554" text-anchor="middle">沒題／問滿</text>
@@ -99,7 +99,7 @@
 
 <!-- ── 輸出 ───────────────────────────────────────────── -->
 <rect class="box code" x="200" y="624" width="300" height="62"/>
-<text class="t tc" x="350" y="648" text-anchor="middle">輸出下三題</text>
+<text class="t tc" x="350" y="648" text-anchor="middle">輸出最值得問的三題</text>
 <text class="s sc" x="350" y="668" text-anchor="middle">＋ 剩幾個症狀、剩幾種可能原因</text>
 
 <path class="edge" d="M350 686 L350 712" marker-end="url(#a)"/>
@@ -110,7 +110,7 @@
 
 <!-- ── 回圈 ───────────────────────────────────────────── -->
 <path class="edge" d="M200 736 L150 736 L150 211 L198 211" marker-end="url(#a)"/>
-<text class="lbl" x="158" y="470" transform="rotate(-90 158 470)" text-anchor="middle">新答案回到採信</text>
+<text class="lbl" x="158" y="470" transform="rotate(-90 158 470)" text-anchor="middle">回答接回原句，整段重抽</text>
 
 <!-- ── 圖例 ───────────────────────────────────────────── -->
 <line x1="24" y1="790" x2="736" y2="790" stroke="#D7D5CE" stroke-width="1"/>

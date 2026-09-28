@@ -30,7 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import jevdemo as J
 import cmcdemo as C
-from intake import ASK_BUDGET, QUESTIONS, QUESTION_BY_FACT
+from intake import ASK_BUDGET, QUESTIONS, SHOW_LIMIT
 
 try:
     BASE_CSS = J.PAGE.split("<style>")[1].split("</style>")[0]
@@ -38,13 +38,24 @@ except IndexError:
     sys.exit("jevdemo.PAGE 裡找不到 <style> 區塊，無法共用樣式。")
 
 
+# 前三則一句話就講到位，第一輪就收斂。後六則客戶都漏講了東西，得追問才走得
+# 下去——那才是這個 demo 要看的。
+#
+# 不在 note 上寫「追幾輪」。實測過同一句話，客戶後面怎麼答，2 輪到 3 輪都有。
+# 寫死一個數字，示範的時候對不上就得解釋。
 COMPLAINTS = [
     {"note": "燈一直不熄", "text": "早上發動之後 ABS 的燈一直亮著不會熄"},
     {"note": "手煞車已放，燈還亮", "text": "手煞車明明放下來了，那個紅色驚嘆號還是亮著"},
     {"note": "功能不作動", "text": "上坡起步的時候車子會往後溜，以前不會這樣"},
-    {"note": "作動太頻繁 + 異音", "text": "煞車的時候方向盤會抖，而且一直聽到噠噠噠的聲音"},
-    {"note": "不該作動時作動", "text": "平地起步車子會頓一下，好像被什麼拉住"},
-    {"note": "什麼都沒講", "text": "車子怪怪的，你幫我看一下"},
+    {"note": "作動太頻繁，要追問", "text": "煞車的時候方向盤會抖，而且一直聽到噠噠噠的聲音"},
+    {"note": "不該作動時作動，要追問", "text": "平地起步車子會頓一下，好像被什麼拉住"},
+    {"note": "什麼都沒講，要追問", "text": "車子怪怪的，你幫我看一下"},
+    {"note": "知道有燈，不知道哪一個，要追問",
+     "text": "儀表板上有個燈亮著，我也不知道是哪一個"},
+    {"note": "只講感覺，沒提燈號，要追問",
+     "text": "最近覺得煞車不太對勁，不知道要不要緊"},
+    {"note": "提到燈號但沒講細節，要追問",
+     "text": "這台車最近有點狀況，儀表板燈號也有變"},
 ]
 
 
@@ -186,7 +197,7 @@ border-left:3px solid var(--stop);background:var(--stopbg)}
          症狀事實表有 <span class="warn">10 格是人工判讀</span>，需要技術課確認。</p>
     </div>
     <div>
-      <h4>題庫 6 分項</h4>
+      <h4>題庫分項</h4>
       <ol id="ablist"></ol>
     </div>
   </div>
@@ -199,8 +210,8 @@ border-left:3px solid var(--stop);background:var(--stopbg)}
   <div class="panel">
     <div class="phead">
       <h2>Request</h2>
-      <p>六個分項平行問。客戶沒提到的歸為 not_stated，不納入篩選。
-         追問的回答接在後面，整段重抽一次。</p>
+      <p>每個分項各問一題，同一次呼叫裡平行作答。客戶沒提到的歸為 not_stated，
+         不納入篩選。追問的回答接在後面，整段重抽一次。</p>
     </div>
     <div class="pbody">
       <p class="fld">state</p>
@@ -334,7 +345,7 @@ function reset(msg){
   drawSkeleton();
 }
 
-// 六個分項在跑之前就畫出來，只是沒有值。看得到會問什麼，才知道沒問什麼。
+// 分項在跑之前就畫出來，只是沒有值。看得到會問什麼，才知道沒問什麼。
 function drawSkeleton(){ renderFacts(null); }
 
 // 列上只寫勝出的那個選項。落選的機率是判斷品質所在，所以每一列都能點開，
@@ -441,7 +452,7 @@ function renderAsk(qs, stop){
         '<div class="rl"><input type="text" spellcheck="false" ' +
         'placeholder="客戶怎麼回答？照客戶的話打"><button type="button" class="rb">' +
         '送出回答</button></div>' +
-        '<p class="rn">這句話會接在原本的描述後面，六個分項重抽一次。</p>' +
+        '<p class="rn">這句話會接在原本的描述後面，所有分項重抽一次。</p>' +
         '</div></div>';
     }).join("");
   }
@@ -571,7 +582,7 @@ def triage_payload(complaint, asked_before=()):
     candidates = C.narrow(SYMPTOMS, facts)
     asked = set(facts) | set(asked_before)
     rounds = len(asked_before)
-    nxt = C.next_questions(candidates, asked, limit=ASK_BUDGET, rounds=rounds)
+    nxt = C.next_questions(candidates, asked, limit=SHOW_LIMIT, rounds=rounds)
     stop = C.stop_reason(candidates, nxt, asked, rounds=rounds)
     compute_ms = (time.perf_counter() - t1) * 1000
 

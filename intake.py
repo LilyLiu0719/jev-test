@@ -26,20 +26,25 @@ FACTS 的值大多是從 out/symptom_graphs/*.json 的症狀標題推出來的�
 「ABS 功能故障」，正確的症狀就被這一格排除掉了。
 寫成 ("none", "abs") 才是實話：客戶可能說功能正常，也可能說 ABS 不靈，兩種都
 算數，但他不會說是斜坡起步輔助的問題。
+
+原本還有 noise（異音）與 feel（煞車手感）兩個面向。清掉沒有根據的 False 之後，
+整張表只剩兩格有值（SYM9 的 feel、SYM16 的 noise）。一個值分不出兩堆，切分力
+恆等於 0，程式永遠不會挑到它們——畫面上掛著兩題永遠不會被問的題目。刪掉。
+
+代價記在這裡：SYM9「煞車作動異常」失去唯一的正面訊號，客戶說沒亮燈、功能也
+沒問題的時候，它跟 SYM16 分不開。技術課把那兩欄補完就可以加回來。
 """
 
 # --------------------------------------------------------------- 事實面向 ---
 # 每個面向是一個業務可以當場問出來的問題。值域刻意小，因為客戶只會給模糊答案。
 
-FACT_KEYS = ["light", "light_state", "function", "function_issue", "noise", "feel"]
+FACT_KEYS = ["light", "light_state", "function", "function_issue"]
 
 FACT_VALUES = {
     "light":          ["abs", "brake", "asc", "asc_off", "none"],
     "light_state":    ["stays_on", "never_lights"],
     "function":       ["abs", "asc", "hsa", "ess", "steering", "none"],
     "function_issue": ["inactive", "over_active", "wrong_context", "cannot_disable"],
-    "noise":          [True, False],
-    "feel":           [True, False],
 }
 
 
@@ -50,106 +55,106 @@ FACT_VALUES = {
 SYMPTOM_FACTS = {
     "G35C_SYM1": {   # C.M.U.T.-II 無法與 ABS/ASC 系統通訊
         "facts": {"light": None, "light_state": None, "function": None,
-                  "function_issue": None, "noise": None, "feel": None},
+                  "function_issue": None},
         "needs_tool": True,   # 業務問不出來，只有接上診斷電腦才知道
         "src": "title",
     },
     "G35C_SYM2": {   # 手煞車已釋放，煞車警示燈仍 ON（ABS 燈 OFF）
         "facts": {"light": "brake", "light_state": "stays_on", "function": "none",
-                  "function_issue": None, "noise": None, "feel": None},
+                  "function_issue": None},
         "src": "title",
     },
     "G35C_SYM3": {   # 點火 ON（引擎熄火）後 ABS 警示燈不會亮起
         "facts": {"light": "abs", "light_state": "never_lights", "function": "none",
-                  "function_issue": None, "noise": None, "feel": None},
+                  "function_issue": None},
         "src": "title",
     },
     "G35C_SYM4": {   # 點火 ON（引擎熄火）後煞車警示燈不會亮起
         "facts": {"light": "brake", "light_state": "never_lights", "function": "none",
-                  "function_issue": None, "noise": None, "feel": None},
+                  "function_issue": None},
         "src": "title",
     },
     "G35C_SYM5": {   # 引擎起動後 ABS 警示燈仍亮著
         "facts": {"light": "abs", "light_state": "stays_on", "function": ("none", "abs"),
-                  "function_issue": None, "noise": None, "feel": None},
+                  "function_issue": None},
         "draft": ["function"],
         # 客戶多半只說燈亮，但急煞過的人可能說 ABS 不靈。兩種都相容。
         "src": "title",
     },
     "G35C_SYM6": {   # 引擎起動後 ASC 警示燈仍 ON
         "facts": {"light": "asc", "light_state": "stays_on", "function": ("none", "asc"),
-                  "function_issue": None, "noise": None, "feel": None},
+                  "function_issue": None},
         "draft": ["function"],
         # 同上，可能說功能正常，也可能說 ASC 沒作用。
         "src": "title",
     },
     "G35C_SYM7": {   # 引擎起動後 ASC OFF 指示燈仍 ON
         "facts": {"light": "asc_off", "light_state": "stays_on", "function": ("none", "asc"),
-                  "function_issue": None, "noise": None, "feel": None},
+                  "function_issue": None},
         "draft": ["function"],
         # 同上。ASC OFF 燈亮代表穩定控制被關掉，客戶可能有感。
         "src": "title",
     },
     "G35C_SYM8": {   # 按住 ASC OFF 開關 3 秒以上無法解除車身穩定控制
         "facts": {"light": "none", "light_state": None, "function": "asc",
-                  "function_issue": "cannot_disable", "noise": None, "feel": None},
+                  "function_issue": "cannot_disable"},
         "draft": ["light"],
         # 原因只有開關與線束故障，不會點亮警示燈
         "src": "authored",
     },
     "G35C_SYM9": {   # 煞車作動異常
         "facts": {"light": "none", "light_state": None, "function": ("none", "abs"),
-                  "function_issue": None, "noise": None, "feel": True},
+                  "function_issue": None},
         "draft": ["function"],
         # 原因全是液壓／總泵，但客戶可能把煞車不靈歸給 ABS。
         "src": "authored",
     },
     "G35C_SYM10": {  # ASC 不作動或作動不良
         "facts": {"light": ("asc", "none"), "light_state": None, "function": "asc",
-                  "function_issue": "inactive", "noise": None, "feel": None},
+                  "function_issue": "inactive"},
         "draft": ["light"],
         # 通常會點亮 ASC 燈，但不保證；兩種都相容
         "src": "title",
     },
     "G35C_SYM11": {  # ASC-ECU 電源供應迴路系統
         "facts": {"light": "asc", "light_state": "stays_on", "function": "asc",
-                  "function_issue": "inactive", "noise": None, "feel": None},
+                  "function_issue": "inactive"},
         "src": "authored",
     },
     "G35C_SYM12": {  # 方向盤感知器電源供應迴路系統
         "facts": {"light": "asc", "light_state": "stays_on", "function": "steering",
-                  "function_issue": "inactive", "noise": None, "feel": None},
+                  "function_issue": "inactive"},
         "src": "authored",
     },
     "G35C_SYM13": {  # ABS / 車身穩定控制作動太頻繁
         "facts": {"light": "none", "light_state": None, "function": "abs",
-                  "function_issue": "over_active", "noise": None, "feel": None},
+                  "function_issue": "over_active"},
         "draft": ["light"],
         # 原因全是輪胎、定位、胎壓——系統不認為自己故障
         "src": "title",
     },
     "G35C_SYM14": {  # HSA 不作動
         "facts": {"light": "none", "light_state": None, "function": "hsa",
-                  "function_issue": "inactive", "noise": None, "feel": None},
+                  "function_issue": "inactive"},
         "draft": ["light"],
         # 把握最低：原因含 CAN 匯流排與 ASC-ECU，那些會亮燈
         "src": "title",
     },
     "G35C_SYM15": {  # HSA 在平地上作動
         "facts": {"light": "none", "light_state": None, "function": "hsa",
-                  "function_issue": "wrong_context", "noise": None, "feel": None},
+                  "function_issue": "wrong_context"},
         "draft": ["light"],
         # 誤作動不觸發故障碼，通常不亮燈
         "src": "title",
     },
     "G35C_SYM16": {  # 液壓單元的初始檢查聲音太大聲
         "facts": {"light": "none", "light_state": None, "function": "none",
-                  "function_issue": None, "noise": True, "feel": None},
+                  "function_issue": None},
         "src": "title",
     },
     "G35C_SYM17": {  # ESS 不作動或作動異常
         "facts": {"light": "none", "light_state": None, "function": "ess",
-                  "function_issue": "inactive", "noise": None, "feel": None},
+                  "function_issue": "inactive"},
         "draft": ["light"],
         # ESS 只是煞車燈閃爍，不作動不點亮 ABS／ASC 燈
         "src": "title",
@@ -215,21 +220,15 @@ QUESTIONS = [
             "cannot_disable": "想關掉卻關不掉",
         },
     },
-    {
-        "fact": "noise",
-        "ask": "起步或煞車的時候有聽到不尋常的聲音嗎？",
-        "probe": "客戶有沒有明確提到異常聲音？" + _ONLY_STATED,
-        "opts": {True: "有聽到異音", False: "沒有異音"},
-    },
-    {
-        "fact": "feel",
-        "ask": "踩煞車的感覺有變嗎？例如變硬、變軟、或車子偏一邊？",
-        "probe": "客戶有沒有明確描述煞車手感或制動力異常？" + _ONLY_STATED,
-        "opts": {True: "煞車手感有異常", False: "煞車手感正常"},
-    },
 ]
 
 QUESTION_BY_FACT = {q["fact"]: q for q in QUESTIONS}
 
 # 業務最多問幾題就該收手把車交給工廠。客戶不是來被審問的。
-ASK_BUDGET = 3
+# 題庫剩 4 題，預算也給 4：現在的瓶頸是題目不夠細，不是問太多次。真的要收緊
+# 是等技術課把事實表補完、一兩題就能切乾淨的時候。
+ASK_BUDGET = 4
+
+# 一次畫面上最多列幾題。跟預算是兩件事：預算管「還能煩客戶幾次」，這個管
+# 「一次給業務看幾個選擇」。列滿整個題庫等於沒有排序。
+SHOW_LIMIT = 3
