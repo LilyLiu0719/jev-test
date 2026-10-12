@@ -9,7 +9,7 @@ Two files, no dependencies beyond the standard library.
 ## Run
 
 ```bash
-echo 'JEV_API_KEY=sk-...' > .env      # or export it
+echo 'OPENROUTER_KEY=sk-or-...' > .env   # or export it; Jev runs as typesafe/jev-1.13 on OpenRouter
 python3 jevdemo.py                     # opens http://localhost:8000
 python3 jevdemo.py --port 9000         # different port
 python3 jevdemo.py --no-open           # don't launch a browser
@@ -181,13 +181,13 @@ echo 'JEV_USER_AGENT=...' >> .env
 Confirm the key itself works with curl, which is not affected:
 
 ```bash
-curl -sS https://api.typesafe.ai/v1/models -H "Authorization: Bearer $JEV_API_KEY"
+curl -sS https://openrouter.ai/api/v1/key -H "Authorization: Bearer $OPENROUTER_KEY"
 ```
 
 **`the API rejected the key`**
-`JEV_API_KEY` is wrong or expired. Environment variable wins over `.env`.
+`OPENROUTER_KEY` is wrong or expired (OpenRouter answers 401 "User not found."). Environment variable wins over `.env`.
 
-**`JEV_API_KEY not found`**
+**`OPENROUTER_KEY not found`**
 `.env` has to sit next to `jevdemo.py`, or the variable has to be exported.
 
 **A judgment row shows `–` or `no answer`**
@@ -206,7 +206,7 @@ every rejection and its reason.
 |---|---|
 | `jevdemo.py` | server, API calls, gate, routing, and the page (HTML/CSS/JS inline) |
 | `scenarios.py` | catalog, both question sets, endpoints, network scenarios, access ranks, scenarios — edit this |
-| `.env` | `JEV_API_KEY`, optionally `JEV_USER_AGENT`. Not tracked. |
+| `.env` | `OPENROUTER_KEY`, optionally `JEV_USER_AGENT`. Not tracked. |
 
 `parse_manuals.py` in this directory is unrelated to the demo. It parses
 Mitsubishi/CMC service manuals into a routing dataset.

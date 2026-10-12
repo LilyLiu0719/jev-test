@@ -5,7 +5,7 @@ Jev demo — pick a pre-written scenario, hit the real API, see the answers.
     python3 jevdemo.py            # http://localhost:8000
     python3 jevdemo.py --port 9000
 
-Needs JEV_API_KEY in .env (same directory) or in the environment.
+Needs OPENROUTER_KEY in .env (same directory) or in the environment.
 No dependencies beyond the standard library.
 
 Scenarios live in scenarios.py next to this file. Edit that; nothing here
@@ -36,8 +36,12 @@ try:
 except ImportError:
     sys.exit("scenarios.py not found. It should sit next to this file.")
 
-API_URL = "https://api.typesafe.ai/v1/systemone"
-MODEL = "jev-latest"
+# Jev through OpenRouter. Same request and response shape as TypeSafe's own
+# /v1/systemone; OpenRouter only routes decisions models on this endpoint,
+# chat/completions rejects them.
+API_URL = "https://openrouter.ai/api/alpha/decisions"
+MODEL = "typesafe/jev-1.13"
+KEY_NAME = "OPENROUTER_KEY"
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
@@ -166,11 +170,11 @@ def call_api(state, questions):
                     "The User-Agent was rejected. Try a different one via "
                     "JEV_USER_AGENT in .env, or run the request through curl to "
                     "confirm the key works:\n\n"
-                    "  curl -sS https://api.typesafe.ai/v1/models "
-                    "-H \"Authorization: Bearer $JEV_API_KEY\"" % status)
-            if "authentication_error" in detail or "API key" in detail:
+                    "  curl -sS https://openrouter.ai/api/v1/key "
+                    "-H \"Authorization: Bearer $OPENROUTER_KEY\"" % status)
+            if status == 401 or "authentication_error" in detail or "API key" in detail:
                 raise RuntimeError(
-                    "HTTP %s — the API rejected the key. Check JEV_API_KEY in .env.\n%s"
+                    "HTTP %s — the API rejected the key. Check OPENROUTER_KEY in .env.\n%s"
                     % (status, detail))
             raise RuntimeError("HTTP %s from the API: %s" % (status, detail))
 
@@ -1878,12 +1882,12 @@ def main():
     ap.add_argument("--no-open", action="store_true")
     args = ap.parse_args()
 
-    API_KEY = env("JEV_API_KEY")
+    API_KEY = env(KEY_NAME)
     ua = env("JEV_USER_AGENT")
     if ua:
         globals()["USER_AGENT"] = ua
     if not API_KEY:
-        sys.exit("JEV_API_KEY not found. Put it in .env next to this file, or export it.")
+        sys.exit("OPENROUTER_KEY not found. Put it in .env next to this file, or export it.")
 
     url = "http://localhost:%d" % args.port
     print("Jev demo on %s   (ctrl-c to stop)" % url)

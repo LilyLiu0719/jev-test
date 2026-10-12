@@ -119,9 +119,9 @@ def main():
                     help="rerun and compare against this file instead of writing")
     args = ap.parse_args()
 
-    J.API_KEY = J.env("JEV_API_KEY")
+    J.API_KEY = J.env(J.KEY_NAME)
     if not J.API_KEY:
-        sys.exit("JEV_API_KEY not found. Put it in .env next to this file, or export it.")
+        sys.exit("OPENROUTER_KEY not found. Put it in .env next to this file, or export it.")
     ua = J.env("JEV_USER_AGENT")
     if ua:
         J.USER_AGENT = ua

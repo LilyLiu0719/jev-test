@@ -401,9 +401,9 @@ def main():
     if not args.sentence:
         sys.exit("給我一句客戶的話，或用 --selftest")
 
-    J.API_KEY = J.env("JEV_API_KEY")
+    J.API_KEY = J.env(J.KEY_NAME)
     if not J.API_KEY:
-        sys.exit("JEV_API_KEY 找不到。放在 .env 或 export。")
+        sys.exit("OPENROUTER_KEY 找不到。放在 .env 或 export。")
     ua = J.env("JEV_USER_AGENT")
     if ua:
         J.USER_AGENT = ua
