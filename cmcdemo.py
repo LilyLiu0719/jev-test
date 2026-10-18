@@ -33,7 +33,9 @@ SYMPTOM_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 def load_symptoms():
     """症狀圖 + 事實表。事實表沒收錄的症狀會被指出來，而不是默默漏掉。"""
     out = {}
-    for path in sorted(glob.glob(os.path.join(SYMPTOM_DIR, "*.json"))):
+    # 事實表只有 35C 煞車的症狀。13 引擎的症狀流程另外給 /api/diagnose 用，
+    # 混進來會讓問診出現沒有事實可切分的候選
+    for path in sorted(glob.glob(os.path.join(SYMPTOM_DIR, "G35C_*.json"))):
         with open(path, encoding="utf-8") as fh:
             d = json.load(fh)
         sid = d["symptom_id"]

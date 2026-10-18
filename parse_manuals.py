@@ -590,6 +590,143 @@ def parse_symptom_group(group, lines, terminals):
     return parsed, region_lines
 
 
+# GROUP_13 states its symptom procedures as tables instead of 步驟/Q/是/否 lines,
+# under a heading none of SYMPTOM_MARKERS matches, so the pass above finds none:
+#
+#   一、起動時，引擎不轉或轉動緩慢。
+#   一般故障部位：1、電瓶；2、起動馬達；...
+#   一般診斷流程：
+#    序號   操作步驟                                檢測結果   後續步驟
+#     1     檢查電瓶…電壓，在引擎起動的時候是否有8-12V左右。   是   下一步
+#                                                    否   更換電瓶
+#
+# The section first lists the 13 complaints, then repeats each one with its
+# table; only headers followed by table rows become procedures. The 操作步驟
+# cell is both the check and the question, so it is used for both. 後續步驟 is
+# 下一步, 到步驟N, or an action. 下一步 on the last row is resolved literally to
+# a step that does not exist, and the dangling_step_ref check flags it: the
+# manual does not say where the procedure ends, so the parser does not either.
+TABLE_SYMPTOM_START_RE = re.compile(r"^#*\s*根據故障現象進行檢修的診斷流程\s*$")
+TABLE_SYMPTOM_END_RE = re.compile(r"^#*\s*特殊工具\s*$")
+TABLE_SYMPTOM_HEADER_RE = re.compile(r"^([一二三四五六七八九十]+)、(.+)$")
+TABLE_CAUSES_RE = re.compile(r"^一般故障部位\s*[:：]\s*(.*)$")
+TABLE_HEAD_CELLS = ["序號", "操作步驟", "檢測結果", "後續步驟"]
+TABLE_NEXT_RE = re.compile(r"^下一步[。.]?$")
+TABLE_GOTO_RE = re.compile(r"^(?:到|至|進行|前往|跳至|轉至)\s*步\s*驟\s*([0-9]+)[。.]?$")
+# independent count of 是/否 result cells, for the MATCH line in the report
+TABLE_ANSWER_CELL_RE = re.compile(r"(?:^|\s{2,})[是否]\s{2,}\S")
+
+
+def cn_number(s):
+    """一 .. 九十九 -> int."""
+    digits = "一二三四五六七八九"
+    if "十" not in s:
+        return digits.index(s) + 1
+    tens, _, ones = s.partition("十")
+    return ((digits.index(tens) + 1) if tens else 1) * 10 + \
+        ((digits.index(ones) + 1) if ones else 0)
+
+
+def find_table_symptom_region(raw):
+    """-> [(lineno, raw_line)] of the 根據故障現象 section, or []."""
+    lines = raw.splitlines()
+    start = next((i for i, l in enumerate(lines)
+                  if TABLE_SYMPTOM_START_RE.match(debold(l))), None)
+    if start is None:
+        return []
+    end = next((j for j in range(start + 1, len(lines))
+                if TABLE_SYMPTOM_END_RE.match(debold(lines[j]))), len(lines))
+    return [(i + 1, lines[i]) for i in range(start + 1, end)]
+
+
+def parse_table_symptom_group(group, raw, terminals):
+    """-> (procedures, region) for table-format symptom procedures."""
+    region = find_table_symptom_region(raw)
+    procedures, cur, cur_step = [], None, None
+    for ln, line in region:
+        if is_noise(line):
+            continue
+        deb = debold(line).translate(FULLWIDTH_DIGITS)
+        m = TABLE_SYMPTOM_HEADER_RE.match(deb)
+        if m:
+            cur = {"sym_no": cn_number(m.group(1)),
+                   "sym_text": clean_text(m.group(2)).rstrip("。"),
+                   "causes": [], "steps": OrderedDict(), "anomalies": [],
+                   "line": ln}
+            procedures.append(cur)
+            cur_step = None
+            continue
+        if cur is None:
+            continue
+        cm = TABLE_CAUSES_RE.match(deb)
+        if cm:
+            # "1、電瓶；2、起動馬達" -> the items; the numbering is layout
+            cur["causes"] = [re.sub(r"^[0-9]+\s*[、.．]\s*", "", x).strip()
+                             for x in re.split(r"[；;]", cm.group(1))
+                             if x.strip().rstrip("。")]
+            cur["causes"] = [c.rstrip("。") for c in cur["causes"]]
+            continue
+        # columns are separated by runs of spaces; debold() would collapse them
+        cells = [debold(c).translate(FULLWIDTH_DIGITS)
+                 for c in re.split(r"\s{2,}", line.strip())]
+        if cells == TABLE_HEAD_CELLS:
+            continue
+        if len(cells) == 4 and cells[0].isdigit() and cells[2] in ("是", "否"):
+            n = int(cells[0])
+            text = clean_text(cells[1])
+            if n in cur["steps"]:
+                cur["anomalies"].append(f"duplicate 步驟 {n} (line {ln})")
+                cur["steps"][n]["duplicate_number"] = True
+                cur_step = cur["steps"][n]
+            else:
+                cur_step = {"n": n, "title": text, "body": [], "q": text,
+                            "branches": [], "line": ln}
+                cur["steps"][n] = cur_step
+            cur_step["branches"].append(
+                {"answer": cells[2], "text": clean_text(cells[3]), "line": ln})
+        elif len(cells) == 2 and cells[0] in ("是", "否") and cur_step:
+            cur_step["branches"].append(
+                {"answer": cells[0], "text": clean_text(cells[1]), "line": ln})
+        elif TABLE_ANSWER_CELL_RE.search(line):
+            # a row that holds a 是/否 result but has an unexpected shape:
+            # surface it rather than drop it
+            cur["anomalies"].append(f"unparsed table row (line {ln})")
+
+    parsed = []
+    for i, p in enumerate(x for x in procedures if x["steps"]):
+        steps = p["steps"]
+        terminal_ids = OrderedDict()
+        for n in sorted(steps):
+            for br in steps[n]["branches"]:
+                t = br["text"]
+                go = TABLE_GOTO_RE.match(t)
+                br["followup_step"] = None
+                br["incomplete_step_ref"] = False
+                if TABLE_NEXT_RE.match(t):
+                    br["kind"], br["target"] = "step", f"step_{n + 1}"
+                elif go:
+                    br["kind"], br["target"] = "step", f"step_{int(go.group(1))}"
+                else:
+                    br["kind"] = "terminal"
+                    br["target"] = terminals.id_for(t)
+                    fu = STEP_REF_RE.search(t)
+                    br["followup_step"] = int(fu.group(1)) if fu else None
+                    terminal_ids.setdefault(br["target"], t.rstrip("。."))
+        parsed.append({
+            "group": group, "dtc_codes": [], "dtc_names": [],
+            "symptom": None, "failure_criteria": None,
+            "possible_causes": p["causes"], "steps": steps,
+            "candidate_actions": (
+                [{"id": f"step_{n}", "text": steps[n]["title"]} for n in sorted(steps)]
+                + [{"id": tid, "text": txt} for tid, txt in terminal_ids.items()]),
+            "terminal_ids": terminal_ids, "anomalies": p["anomalies"],
+            "extra_sections": {}, "section_index": 0, "line": p["line"],
+            "kind": "symptom", "procedure_index": i, "id_suffix": "",
+            "sym_no": p["sym_no"], "sym_text": p["sym_text"],
+        })
+    return parsed, region
+
+
 # ------------------------------------------------------- defects / exclusions
 
 # A record is excluded from eval by default when the *source procedure* is
@@ -951,10 +1088,10 @@ def report(group, procs, doc_counts, raw_counts, issues, recs, provenance):
     return "\n".join(L)
 
 
-def symptom_report(group, procs, raw_counts, issues, recs):
+def symptom_report(group, procs, raw_counts, issues, recs, fmt=""):
     L, A = [], None
     A = L.append
-    A(f"\n{'-'*74}\nGROUP {group} -- SYMPTOM-KEYED TREES (separate dataset)\n"
+    A(f"\n{'-'*74}\nGROUP {group} -- SYMPTOM-KEYED TREES{fmt} (separate dataset)\n"
       f"{'-'*74}")
     A(f"symptom procedures     : {len(procs)}")
     A(f"steps parsed           : {sum(len(p['steps']) for p in procs)}")
@@ -1054,6 +1191,35 @@ def main():
                                    extraction_provenance(group)))
         all_recs.extend(recs)
         totals.append((group, procs, recs))
+
+    # --- table-format symptom trees (GROUP_13). A separate pass after every
+    # group, so the terminals they introduce get ids after all existing ones
+    # and no id another group already uses shifts.
+    for group in args.groups:
+        raw = extract(group, args.refresh)
+        tprocs, tregion = parse_table_symptom_group(group, raw, terminals)
+        if not tprocs:
+            continue
+        trecs, tissues = [], defaultdict(list)
+        for sp in tprocs:
+            bdef, sdef, iss = analyze_procedure(sp)
+            for k, v in iss.items():
+                tissues[k].extend(v)
+            r, graph = emit(sp, bdef, sdef)
+            trecs.extend(r)
+            (out / "symptom_graphs").mkdir(parents=True, exist_ok=True)
+            (out / "symptom_graphs" / f"G{group}_SYM{sp['sym_no']}.json"
+             ).write_text(json.dumps(graph, ensure_ascii=False, indent=2),
+                          encoding="utf-8")
+        cells = sum(1 for _, l in tregion if TABLE_ANSWER_CELL_RE.search(l))
+        tables = sum(1 for _, l in tregion if debold(l).startswith("一般診斷流程"))
+        sym_reports.append(
+            symptom_report(group, tprocs, {"是/否 branch lines": cells},
+                           tissues, trecs, fmt=" (table format)")
+            + f"\n  一般診斷流程 tables in source: {tables}; "
+              f"procedures parsed: {len(tprocs)}"
+            + ("  MATCH" if tables == len(tprocs) else "  <-- MISMATCH"))
+        sym_recs.extend(trecs)
 
     with (out / "transitions.jsonl").open("w", encoding="utf-8") as f:
         for r in all_recs:
